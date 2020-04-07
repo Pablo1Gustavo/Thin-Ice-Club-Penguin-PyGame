@@ -1,6 +1,6 @@
 # Thin-Ice-Club-Penguin-minigame-
 #### An adaption of the minigame inside the game Club Penguin.
-#### Made in 2019 during the 2nd year of the integrated technical course in informatic. It is a Object Oriented Programming discipline project.
+#### Made in 2018 during the 2nd year of the integrated technical course in informatic. It is a Object Oriented Programming discipline project.
 
 
 This game was made using 3.6 and the library PyGame1.9.4
