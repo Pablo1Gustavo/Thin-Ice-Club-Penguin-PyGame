@@ -24,16 +24,16 @@ The Makefile creates a `.venv` using the Python version selected by [mise](https
        [^]
    [<] [v] [>]
 
-   [Esc] Quit
+   [Esc] Quit    [R] Restart after winning
 ```
 
-> Run the game from the project root: the code uses relative paths to load levels, images, the font, and music.
+The game loads its assets relative to the project files, so `make run` works from the project root.
 
 ## 📁 Project structure
 
 | Path | Contents |
 | --- | --- |
-| `Thin Ice.py` | Main game code and entry point. |
+| `src/` | Game loop, level loader, player, tiles, and the `python -m src` entry point. |
 | `Levels/` | Text files containing the level maps. |
 | `Textures/` | Images for the player, scenery, and scoreboard. |
 | `Sounds/` | Game music. |

@@ -7,4 +7,4 @@ install: .venv/bin/python
 	mise exec -- python -m venv .venv
 
 run: .venv/bin/python
-	.venv/bin/python "Thin Ice.py"
+	.venv/bin/python -m src
