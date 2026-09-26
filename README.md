@@ -34,7 +34,7 @@ The game loads its assets relative to the project files, so `make run` works fro
 | Path | Contents |
 | --- | --- |
 | `src/` | Game loop, level loader, player, tiles, and the `python -m src` entry point. |
-| `Levels/` | Text files containing the level maps. |
+| `Levels/` | TOML files containing each level's tile grid and starting position. |
 | `Textures/` | Images for the player, scenery, and scoreboard. |
 | `Sounds/` | Game music. |
 | `Fonts/` | Font used in the interface. |

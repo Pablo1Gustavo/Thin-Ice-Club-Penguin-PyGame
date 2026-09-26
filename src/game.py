@@ -52,7 +52,7 @@ class Game:
         pygame.mixer.music.play(-1)
 
         self.level_paths = sorted(
-            (ROOT / "Levels").glob("level*.txt"),
+            (ROOT / "Levels").glob("level*.toml"),
             key=lambda path: int(path.stem.removeprefix("level")),
         )
         self.restart()
