@@ -1,16 +1,42 @@
-# Thin-Ice-Club-Penguin-minigame-
+# Thin Ice — Club Penguin 🐧🧊
 
-<img alt="game preview image" src="https://github.com/Pablo1Gustavo/Thin-Ice-Club-Penguin-minigame-copy/blob/master/game_preview.jpg?raw=true" width="50%" height="50%">
+Recreation of **Thin Ice**, a Club Penguin minigame. It was made in 2018 for an Object-Oriented Programming course in an integrated technical program in Computer Science.
 
-#### An adaption of the minigame inside the game Club Penguin.
-#### Made in 2018 during the 2nd year of the integrated technical course in informatic. It is a Object Oriented Programming discipline project.
+![Game preview](game_preview.jpg)
 
+## 🚀 How to play
 
-This game was made using 3.6 and the library PyGame1.9.4
+The project uses **Python 3.6.15** and **pygame 1.9.4**. `mise.toml` specifies the Python version, and `requirements.txt` lists the game's dependency.
 
-To install pygagame:
+From the project root, install the dependencies and run the game:
+
+```bash
+python -m pip install -r requirements.txt
+python "Thin Ice.py"
 ```
-pip install pygame
+
+If you use [mise](https://mise.jdx.dev/), first install the configured Python version with `mise install`. Then prefix each `python` command above with `mise exec --`.
+
+### 🎮 Controls
+
+```text
+       [^]
+   [<] [v] [>]
+
+   [Esc] Quit
 ```
 
-To play the game, just execute the archive "Thin Ice.py"
+> Run the game from the project root: the code uses relative paths to load levels, images, the font, and music.
+
+## 📁 Project structure
+
+| Path | Contents |
+| --- | --- |
+| `Thin Ice.py` | Main game code and entry point. |
+| `Levels/` | Text files containing the level maps. |
+| `Textures/` | Images for the player, scenery, and scoreboard. |
+| `Sounds/` | Game music. |
+| `Fonts/` | Font used in the interface. |
+| `game_preview.jpg` | Preview image shown in this README. |
+| `requirements.txt` | Python dependency (`pygame==1.9.4`). |
+| `mise.toml` | Python version (`3.6.15`) for mise users. |
