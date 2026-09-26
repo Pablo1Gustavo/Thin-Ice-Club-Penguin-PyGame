@@ -24,10 +24,11 @@ The Makefile creates a `.venv` using the Python version selected by [mise](https
        [^]
    [<] [v] [>]
 
-   [Esc] Quit    [F5] Restart    [R] Restart after winning
+   [Esc] Quit    [F5] Restart    [F11] Fullscreen
+   [R] Restart after winning
 ```
 
-The game loads its assets relative to the project files, so `make run` works from the project root.
+Drag the window edges to resize the game; its original proportions are preserved. The game loads its assets relative to the project files, so `make run` works from the project root.
 
 ## 📁 Project structure
 

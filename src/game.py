@@ -29,7 +29,7 @@ class Game:
     def __init__(self) -> None:
         pygame.init()
         pygame.key.set_repeat(200, 150)
-        self.screen = pygame.display.set_mode(WINDOW_SIZE)
+        self.screen = pygame.display.set_mode(WINDOW_SIZE, pygame.SCALED | pygame.RESIZABLE)
         pygame.display.set_caption("Thin Ice")
         self.font = pygame.font.Font(ROOT / "Fonts/Pixeled.ttf", 9)
         self.end_font = pygame.font.Font(None, 28)
@@ -129,13 +129,18 @@ class Game:
                     case pygame.KEYUP:
                         self.held_actions.discard(event.key)
                     case pygame.KEYDOWN:
-                        if event.key == pygame.K_F5:
+                        if event.key in (pygame.K_F5, pygame.K_F11):
                             if event.key in self.held_actions:
                                 continue
                             self.held_actions.add(event.key)
                         match event.key:
                             case pygame.K_ESCAPE:
                                 running = False
+                            case pygame.K_F11:
+                                try:
+                                    pygame.display.toggle_fullscreen()
+                                except pygame.error as error:
+                                    print(f"Fullscreen unavailable: {error}")
                             case pygame.K_F5:
                                 self.restart()
                             case pygame.K_r if self.won:
