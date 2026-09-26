@@ -28,6 +28,7 @@ DIRECTIONS = {
 class Game:
     def __init__(self) -> None:
         pygame.init()
+        pygame.key.set_repeat(200, 150)
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
         pygame.display.set_caption("Thin Ice")
         self.font = pygame.font.Font(ROOT / "Fonts/Pixeled.ttf", 9)
@@ -55,6 +56,7 @@ class Game:
             (ROOT / "Levels").glob("level*.toml"),
             key=lambda path: int(path.stem.removeprefix("level")),
         )
+        self.held_actions = set()
         self.restart()
 
     def restart(self) -> None:
@@ -124,10 +126,18 @@ class Game:
                 match event.type:
                     case pygame.QUIT:
                         running = False
+                    case pygame.KEYUP:
+                        self.held_actions.discard(event.key)
                     case pygame.KEYDOWN:
+                        if event.key == pygame.K_F5:
+                            if event.key in self.held_actions:
+                                continue
+                            self.held_actions.add(event.key)
                         match event.key:
                             case pygame.K_ESCAPE:
                                 running = False
+                            case pygame.K_F5:
+                                self.restart()
                             case pygame.K_r if self.won:
                                 self.restart()
                             case key if not self.won and key in DIRECTIONS:
