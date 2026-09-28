@@ -9,6 +9,11 @@ class Level:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         self.tiles = [[Tile(TileType(symbol)) for symbol in row] for row in data["tiles"]]
         self.start = tuple(data["start"])
+        self.total_points = sum(
+            tile.kind in (TileType.ICE, TileType.DOUBLE_ICE)
+            for row in self.tiles
+            for tile in row
+        )
 
     def tile_at(self, x: int, y: int) -> Tile | None:
         if 0 <= y < len(self.tiles) and 0 <= x < len(self.tiles[y]):
