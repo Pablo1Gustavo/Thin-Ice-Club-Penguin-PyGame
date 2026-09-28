@@ -33,7 +33,6 @@ class Game:
 
         pygame.mixer.music.load(ROOT / "Sounds/GameMusic.mp3")
         pygame.mixer.music.set_volume(0.65)
-        pygame.mixer.music.play(-1)
 
         self.level_paths = sorted(
             (ROOT / "Levels").glob("level*.toml"),
@@ -45,13 +44,16 @@ class Game:
     def restart(self) -> None:
         self.transition_elapsed_ms = None
         self.score = 0
-        self.level_score = 0
         self.level_index = 0
         self.won = False
         self.player = Player(0, 0)
+        self.held_actions.clear()
+        if pygame.mixer.get_init():
+            pygame.mixer.music.play(-1)
         self.load_level()
 
     def load_level(self) -> None:
+        self.level_score = 0
         self.level = Level(self.level_paths[self.level_index])
         self.player.reset_position(*self.level.start)
         self.renderer.reset_level(self.player)
@@ -80,7 +82,6 @@ class Game:
                 self.player.lose_life()
                 self.fall_elapsed_ms = 0
             case TileType.FINISH:
-                self.level_score = 0
                 self.transition_elapsed_ms = 0
 
     def advance_animations(self, elapsed_ms: int) -> None:
@@ -88,7 +89,7 @@ class Game:
         if self.fall_elapsed_ms is not None:
             self.fall_elapsed_ms += elapsed_ms
             if self.fall_elapsed_ms >= FALL_DURATION_MS:
-                if self.player.is_alive():
+                if self.player.is_alive:
                     self.load_level()
                 else:
                     self.restart()

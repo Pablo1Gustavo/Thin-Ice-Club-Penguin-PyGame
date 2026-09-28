@@ -18,5 +18,6 @@ class Player:
         if self.lives > 0:
             self.lives -= 1
 
+    @property
     def is_alive(self) -> bool:
         return self.lives > 0
