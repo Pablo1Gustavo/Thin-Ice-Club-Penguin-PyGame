@@ -4,29 +4,16 @@ import pygame
 
 from .level import Level
 from .player import Player
+from .render import (
+    FALL_DURATION_MS,
+    LEVEL_TRANSITION_DURATION_MS,
+    WINDOW_SIZE,
+    Render,
+)
 from .tile import TileType
 
 
 ROOT = Path(__file__).resolve().parent.parent
-
-TILE_SIZE = 50
-HUD_HEIGHT = 70
-HEART_SIZE = 48
-
-PLAYER_FRAME_COUNT = 3
-
-PLAYER_FRAME_DURATION_MS = 180
-TILE_FRAME_DURATION_MS = 240
-
-BOARD_WIDTH = 19
-BOARD_HEIGHT = 15
-
-WINDOW_SIZE = (BOARD_WIDTH * TILE_SIZE, BOARD_HEIGHT * TILE_SIZE + HUD_HEIGHT)
-
-ICE_COLOR = (230, 253, 255)
-SCORE_COLOR = (30, 60, 150)
-HUD_COLOR = (215, 244, 255)
-HUD_BORDER_COLOR = (77, 166, 224)
 
 DIRECTIONS = {
     pygame.K_LEFT: (-1, 0),
@@ -42,47 +29,7 @@ class Game:
         pygame.key.set_repeat(300, 200)
         self.screen = pygame.display.set_mode(WINDOW_SIZE, pygame.SCALED | pygame.RESIZABLE)
         pygame.display.set_caption("Thin Ice")
-        self.font = pygame.font.Font(ROOT / "Fonts/Pixeled.ttf", 24)
-        self.end_font = pygame.font.Font(None, 48)
-
-        textures = ROOT / "Textures"
-        player_textures = textures / "Player"
-        self.player_images = [
-            pygame.transform.smoothscale(
-                pygame.image.load(player_textures / f"Player_{index:02d}.png").convert_alpha(),
-                (TILE_SIZE, TILE_SIZE),
-            )
-            for index in range(1, PLAYER_FRAME_COUNT + 1)
-        ]
-        self.animation_elapsed_ms = 0
-        self.heart_image = pygame.transform.smoothscale(
-            pygame.image.load(textures / "Heart.png").convert_alpha(),
-            (HEART_SIZE, HEART_SIZE),
-        )
-
-        def load_tile_frames(name: str, count: int) -> list[pygame.Surface]:
-            paths = (
-                [textures / name / f"{name}_{index:02d}.png" for index in range(1, count + 1)]
-                if count > 1
-                else [textures / f"{name}.png"]
-            )
-            return [
-                pygame.transform.scale(
-                    pygame.image.load(path).convert_alpha(),
-                    (TILE_SIZE, TILE_SIZE),
-                )
-                for path in paths
-            ]
-
-        self.tile_images = {
-            TileType.EMPTY: load_tile_frames("EmptySquare", 1),
-            TileType.WATER: load_tile_frames("Water", 3),
-            TileType.ICE: load_tile_frames("Ice", 1),
-            TileType.FINISH: load_tile_frames("FinishSquare", 3),
-            TileType.WALL: load_tile_frames("Wall", 1),
-            TileType.DOUBLE_ICE: load_tile_frames("DoubleIce", 1),
-        }
-        self.hud_text_values = None
+        self.renderer = Render(self.screen, ROOT)
 
         pygame.mixer.music.load(ROOT / "Sounds/GameMusic.mp3")
         pygame.mixer.music.set_volume(0.65)
@@ -96,6 +43,7 @@ class Game:
         self.restart()
 
     def restart(self) -> None:
+        self.transition_elapsed_ms = None
         self.score = 0
         self.level_score = 0
         self.level_index = 0
@@ -106,16 +54,23 @@ class Game:
     def load_level(self) -> None:
         self.level = Level(self.level_paths[self.level_index])
         self.player.reset_position(*self.level.start)
+        self.renderer.reset_level(self.player)
+        self.fall_elapsed_ms = None
 
     def move_player(self, dx: int, dy: int) -> None:
+        if self.fall_elapsed_ms is not None or self.transition_elapsed_ms is not None:
+            return
+
         x, y = self.player.x + dx, self.player.y + dy
         destination = self.level.tile_at(x, y)
         if destination is None or not destination.walkable:
             return
 
-        points = self.level.tile_at(self.player.x, self.player.y).leave()
+        previous_tile = self.level.tile_at(self.player.x, self.player.y)
+        points = previous_tile.leave()
         self.score += points
         self.level_score += points
+        self.renderer.start_move(self.player, bool(points))
         self.player.move(dx, dy)
 
         match destination.kind:
@@ -123,57 +78,42 @@ class Game:
                 self.score -= self.level_score
                 self.level_score = 0
                 self.player.lose_life()
-                if not self.player.is_alive():
-                    self.restart()
-                else:
-                    self.load_level()
+                self.fall_elapsed_ms = 0
             case TileType.FINISH:
                 self.level_score = 0
+                self.transition_elapsed_ms = 0
+
+    def advance_animations(self, elapsed_ms: int) -> None:
+        self.renderer.advance(elapsed_ms)
+        if self.fall_elapsed_ms is not None:
+            self.fall_elapsed_ms += elapsed_ms
+            if self.fall_elapsed_ms >= FALL_DURATION_MS:
+                if self.player.is_alive():
+                    self.load_level()
+                else:
+                    self.restart()
+        if self.transition_elapsed_ms is not None:
+            previous_elapsed = self.transition_elapsed_ms
+            self.transition_elapsed_ms = min(previous_elapsed + elapsed_ms, LEVEL_TRANSITION_DURATION_MS)
+            midpoint = LEVEL_TRANSITION_DURATION_MS // 2
+            if previous_elapsed < midpoint <= self.transition_elapsed_ms:
                 self.level_index += 1
                 if self.level_index == len(self.level_paths):
                     self.won = True
                 else:
                     self.load_level()
+            if self.transition_elapsed_ms >= LEVEL_TRANSITION_DURATION_MS:
+                self.transition_elapsed_ms = None
 
     def draw(self) -> None:
-        tile_frame_index = self.animation_elapsed_ms // TILE_FRAME_DURATION_MS
-        tile_frames = {
-            kind: frames[tile_frame_index % len(frames)]
-            for kind, frames in self.tile_images.items()
-        }
-        for y, row in enumerate(self.level.tiles):
-            for x, tile in enumerate(row):
-                self.screen.blit(tile_frames[tile.kind], (x * TILE_SIZE, y * TILE_SIZE))
-
-        hud_y = BOARD_HEIGHT * TILE_SIZE
-        pygame.draw.rect(self.screen, HUD_COLOR, (0, hud_y, WINDOW_SIZE[0], HUD_HEIGHT))
-        pygame.draw.rect(self.screen, HUD_BORDER_COLOR, (0, hud_y, WINDOW_SIZE[0], 4))
-        heart_rect = self.heart_image.get_rect(topleft=(24, hud_y + (HUD_HEIGHT - HEART_SIZE) // 2))
-        self.screen.blit(self.heart_image, heart_rect)
-        hud_text_values = (self.score, self.player.lives)
-        if hud_text_values != self.hud_text_values:
-            self.score_text = self.font.render(f"SCORE: {self.score}", True, SCORE_COLOR)
-            self.lives_text = self.font.render(f"x{self.player.lives}", True, SCORE_COLOR)
-            self.hud_text_values = hud_text_values
-        self.screen.blit(self.score_text, self.score_text.get_rect(midright=(WINDOW_SIZE[0] - 32, hud_y + HUD_HEIGHT // 2)))
-        self.screen.blit(self.lives_text, self.lives_text.get_rect(midleft=(heart_rect.right + 16, hud_y + HUD_HEIGHT // 2)))
-        frame_index = (self.animation_elapsed_ms // PLAYER_FRAME_DURATION_MS) % len(self.player_images)
-        self.screen.blit(self.player_images[frame_index], (self.player.x * TILE_SIZE, self.player.y * TILE_SIZE))
-
-        if self.won:
-            message = self.end_font.render("You won! R: restart   Esc: quit", True, SCORE_COLOR)
-            box = message.get_rect(center=(WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2))
-            pygame.draw.rect(self.screen, ICE_COLOR, box.inflate(20, 16))
-            self.screen.blit(message, box)
-
-        pygame.display.flip()
+        self.renderer.draw(self)
 
     def run(self) -> None:
         running = True
         clock = pygame.time.Clock()
         self.draw()
         while running:
-            self.animation_elapsed_ms += clock.tick(30)
+            self.advance_animations(clock.tick(60))
             for event in pygame.event.get():
                 match event.type:
                     case pygame.QUIT:
