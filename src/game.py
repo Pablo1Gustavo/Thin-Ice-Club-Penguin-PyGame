@@ -9,13 +9,24 @@ from .tile import TileType
 
 ROOT = Path(__file__).resolve().parent.parent
 
-TILE_SIZE = 20
+TILE_SIZE = 50
+HUD_HEIGHT = 70
+HEART_SIZE = 48
+
+PLAYER_FRAME_COUNT = 3
+
+PLAYER_FRAME_DURATION_MS = 180
+TILE_FRAME_DURATION_MS = 240
+
 BOARD_WIDTH = 19
 BOARD_HEIGHT = 15
-WINDOW_SIZE = (BOARD_WIDTH * TILE_SIZE, BOARD_HEIGHT * TILE_SIZE + 30)
+
+WINDOW_SIZE = (BOARD_WIDTH * TILE_SIZE, BOARD_HEIGHT * TILE_SIZE + HUD_HEIGHT)
+
 ICE_COLOR = (230, 253, 255)
-SCORE_COLOR = (0, 0, 255)
-TEXT_COLOR = (0, 0, 0)
+SCORE_COLOR = (30, 60, 150)
+HUD_COLOR = (215, 244, 255)
+HUD_BORDER_COLOR = (77, 166, 224)
 
 DIRECTIONS = {
     pygame.K_LEFT: (-1, 0),
@@ -28,25 +39,50 @@ DIRECTIONS = {
 class Game:
     def __init__(self) -> None:
         pygame.init()
-        pygame.key.set_repeat(200, 150)
+        pygame.key.set_repeat(300, 200)
         self.screen = pygame.display.set_mode(WINDOW_SIZE, pygame.SCALED | pygame.RESIZABLE)
         pygame.display.set_caption("Thin Ice")
-        self.font = pygame.font.Font(ROOT / "Fonts/Pixeled.ttf", 9)
-        self.end_font = pygame.font.Font(None, 28)
+        self.font = pygame.font.Font(ROOT / "Fonts/Pixeled.ttf", 24)
+        self.end_font = pygame.font.Font(None, 48)
 
         textures = ROOT / "Textures"
-        self.player_image = pygame.image.load(textures / "Player.png").convert_alpha()
-        self.score_image = pygame.image.load(textures / "score_screen.png").convert()
+        player_textures = textures / "Player"
+        self.player_images = [
+            pygame.transform.smoothscale(
+                pygame.image.load(player_textures / f"Player_{index:02d}.png").convert_alpha(),
+                (TILE_SIZE, TILE_SIZE),
+            )
+            for index in range(1, PLAYER_FRAME_COUNT + 1)
+        ]
+        self.animation_elapsed_ms = 0
+        self.heart_image = pygame.transform.smoothscale(
+            pygame.image.load(textures / "Heart.png").convert_alpha(),
+            (HEART_SIZE, HEART_SIZE),
+        )
+
+        def load_tile_frames(name: str, count: int) -> list[pygame.Surface]:
+            paths = (
+                [textures / name / f"{name}_{index:02d}.png" for index in range(1, count + 1)]
+                if count > 1
+                else [textures / f"{name}.png"]
+            )
+            return [
+                pygame.transform.scale(
+                    pygame.image.load(path).convert_alpha(),
+                    (TILE_SIZE, TILE_SIZE),
+                )
+                for path in paths
+            ]
+
         self.tile_images = {
-            TileType.EMPTY: pygame.image.load(textures / "EmptySquare.png").convert(),
-            TileType.WATER: pygame.image.load(textures / "Water.png").convert(),
-            TileType.FINISH: pygame.image.load(textures / "FinishSquare.png").convert(),
-            TileType.WALL: pygame.image.load(textures / "Wall.png").convert(),
-            TileType.DOUBLE_ICE: pygame.image.load(textures / "DoubleIce.png").convert(),
+            TileType.EMPTY: load_tile_frames("EmptySquare", 1),
+            TileType.WATER: load_tile_frames("Water", 3),
+            TileType.ICE: load_tile_frames("Ice", 1),
+            TileType.FINISH: load_tile_frames("FinishSquare", 3),
+            TileType.WALL: load_tile_frames("Wall", 1),
+            TileType.DOUBLE_ICE: load_tile_frames("DoubleIce", 1),
         }
-        ice = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        ice.fill(ICE_COLOR)
-        self.tile_images[TileType.ICE] = ice
+        self.hud_text_values = None
 
         pygame.mixer.music.load(ROOT / "Sounds/GameMusic.mp3")
         pygame.mixer.music.set_volume(0.65)
@@ -100,18 +136,32 @@ class Game:
                     self.load_level()
 
     def draw(self) -> None:
+        tile_frame_index = self.animation_elapsed_ms // TILE_FRAME_DURATION_MS
+        tile_frames = {
+            kind: frames[tile_frame_index % len(frames)]
+            for kind, frames in self.tile_images.items()
+        }
         for y, row in enumerate(self.level.tiles):
             for x, tile in enumerate(row):
-                self.screen.blit(self.tile_images[tile.kind], (x * TILE_SIZE, y * TILE_SIZE))
+                self.screen.blit(tile_frames[tile.kind], (x * TILE_SIZE, y * TILE_SIZE))
 
         hud_y = BOARD_HEIGHT * TILE_SIZE
-        self.screen.blit(self.score_image, (0, hud_y))
-        self.screen.blit(self.font.render(f"SCORE: {self.score}", True, SCORE_COLOR), (285, hud_y))
-        self.screen.blit(self.font.render(f"x{self.player.lives}", True, TEXT_COLOR), (32, hud_y))
-        self.screen.blit(self.player_image, (self.player.x * TILE_SIZE, self.player.y * TILE_SIZE))
+        pygame.draw.rect(self.screen, HUD_COLOR, (0, hud_y, WINDOW_SIZE[0], HUD_HEIGHT))
+        pygame.draw.rect(self.screen, HUD_BORDER_COLOR, (0, hud_y, WINDOW_SIZE[0], 4))
+        heart_rect = self.heart_image.get_rect(topleft=(24, hud_y + (HUD_HEIGHT - HEART_SIZE) // 2))
+        self.screen.blit(self.heart_image, heart_rect)
+        hud_text_values = (self.score, self.player.lives)
+        if hud_text_values != self.hud_text_values:
+            self.score_text = self.font.render(f"SCORE: {self.score}", True, SCORE_COLOR)
+            self.lives_text = self.font.render(f"x{self.player.lives}", True, SCORE_COLOR)
+            self.hud_text_values = hud_text_values
+        self.screen.blit(self.score_text, self.score_text.get_rect(midright=(WINDOW_SIZE[0] - 32, hud_y + HUD_HEIGHT // 2)))
+        self.screen.blit(self.lives_text, self.lives_text.get_rect(midleft=(heart_rect.right + 16, hud_y + HUD_HEIGHT // 2)))
+        frame_index = (self.animation_elapsed_ms // PLAYER_FRAME_DURATION_MS) % len(self.player_images)
+        self.screen.blit(self.player_images[frame_index], (self.player.x * TILE_SIZE, self.player.y * TILE_SIZE))
 
         if self.won:
-            message = self.end_font.render("You won! R: restart   Esc: quit", True, TEXT_COLOR)
+            message = self.end_font.render("You won! R: restart   Esc: quit", True, SCORE_COLOR)
             box = message.get_rect(center=(WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2))
             pygame.draw.rect(self.screen, ICE_COLOR, box.inflate(20, 16))
             self.screen.blit(message, box)
@@ -120,9 +170,11 @@ class Game:
 
     def run(self) -> None:
         running = True
+        clock = pygame.time.Clock()
         self.draw()
         while running:
-            for event in (pygame.event.wait(), *pygame.event.get()):
+            self.animation_elapsed_ms += clock.tick(30)
+            for event in pygame.event.get():
                 match event.type:
                     case pygame.QUIT:
                         running = False
